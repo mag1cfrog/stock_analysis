@@ -54,7 +54,8 @@ def stock_bar_data_download(symbol: str, Start_Date: datetime, End_Date: datetim
     return data_df.reset_index() if not data_df.empty else data_df
 
 
-def update_and_retrieve_stock_data(symbol: str, start_date: datetime, end_date: datetime, time_unit: str, db_path: str, time_unit_length: int = 1, adjustment: str = 'all'):
+def update_and_retrieve_stock_data(symbol: str, start_date: datetime, end_date: datetime, time_unit: str, db_path: str, result_type: str, time_unit_length: int = 1, adjustment: str = 'all'):
+    
     # Connect to DuckDB
     conn = duckdb.connect(db_path)
 
@@ -103,9 +104,15 @@ def update_and_retrieve_stock_data(symbol: str, start_date: datetime, end_date: 
         conn.commit()
 
     # Retrieve the desired data
-    final_data = conn.execute(query).df()
+    final_data = conn.execute(query)
+    if result_type == 'pandas':
+        final_data = final_data.df()
+    elif result_type == 'polars':
+        final_data = final_data.pl()
+    else:
+        raise ValueError("Invalid result type. Choose from 'pandas', 'polars'.")
     conn.close()
-    return final_data.sort_values(by='timestamp')
+    return final_data
 
 
 def is_trading_day(date_to_check, calendar):
@@ -159,7 +166,7 @@ def identify_missing_periods(existing_data, start_date, end_date, time_unit, tim
 
 def main():
     db_path = r'E:\git_repos\stock_analysis\data\raw_stock_price\stock_bar_data.db'
-    df = update_and_retrieve_stock_data('NVDA',  datetime.today() - timedelta(days=180), datetime.today(), 'hour', db_path)
+    df = update_and_retrieve_stock_data('NVDA',  datetime.today() - timedelta(days=180), datetime.today(), 'day', db_path, result_type='polars')
     print(df)
 
 if __name__ == "__main__":
