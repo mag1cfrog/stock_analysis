@@ -9,16 +9,13 @@ import dash
 from dash import dcc, html, Input, Output
 
 
-def calculate_moving_averages(data, short_window, long_window):
-    data = data.with_columns(
-        data['close'].rolling_mean(window_size=int(short_window)).alias('Short_MA'),
-        data['close'].rolling_mean(window_size=int(long_window)).alias('Long_MA')
-    )
-    return data
+# def calculate_moving_averages(data, short_window, long_window):
+    
+#     return data
 
 
 # Core function where the trading strategy is implemented
-def simulate_trading(data):
+def default_gold_cross_death_cross(data, short_window, long_window, cash=10000, shares_held = 0):
     """
     Simulates trading based on the signals in the DataFrame
     
@@ -34,56 +31,49 @@ def simulate_trading(data):
 
     
     """
-    cash = 100000
-    shares_held = 0
+    
     simulation_results = []
-
     normalization_factor = cash / data['close'][0]
 
+    data = data.with_columns(
+        data['close'].rolling_mean(window_size=int(short_window)).alias('short_MA'),
+        data['close'].rolling_mean(window_size=int(long_window)).alias('long_MA')
+    )
+
     # Create conditions for buying and selling
-    buy_condition = (data['Short_MA'] > data['Long_MA']) & (data['Short_MA'].shift(1) <= data['Long_MA'].shift(1))
-    sell_condition = (data['Short_MA'] < data['Long_MA']) & (data['Short_MA'].shift(1) >= data['Long_MA'].shift(1))
+    buy_condition = (data['short_MA'] > data['long_MA']) & (data['short_MA'].shift(1) <= data['long_MA'].shift(1))
+    sell_condition = (data['short_MA'] < data['long_MA']) & (data['short_MA'].shift(1) >= data['long_MA'].shift(1))
 
-    for i in range(data.height):
-        asset_value = cash + shares_held * data['close'][i]
+    data = data.with_columns(
+        pl.when(buy_condition).then(1).when(sell_condition).then(0).alias('percentage_of_cash_invested')
+    )
+
+    # for i in range(data.height):
+    #     asset_value = cash + shares_held * data['close'][i]
         
-        if buy_condition[i]:
-            shares_to_buy = cash // data['close'][i]
-            cash -= shares_to_buy * data['close'][i]
-            shares_held += shares_to_buy
-        elif sell_condition[i]:
-            cash += shares_held * data['close'][i]
-            shares_held = 0
+    #     if buy_condition[i]:
+    #         shares_to_buy = cash // data['close'][i]
+    #         cash -= shares_to_buy * data['close'][i]
+    #         shares_held += shares_to_buy
+    #     elif sell_condition[i]:
+    #         cash += shares_held * data['close'][i]
+    #         shares_held = 0
 
-        simulation_results.append({
-            'Cash': cash,
-            'Shares Held': shares_held,
-            'Asset Value': cash + shares_held * data['close'][i],
-            'Buy Point': buy_condition[i],
-            'Sell Point': sell_condition[i],
-            'Normalized Stock Price': data['close'][i] * normalization_factor
-        })
+    #     simulation_results.append({
+    #         'Cash': cash,
+    #         'Shares Held': shares_held,
+    #         'Asset Value': cash + shares_held * data['close'][i],
+    #         'Buy Point': buy_condition[i],
+    #         'Sell Point': sell_condition[i],
+    #         'Normalized Stock Price': data['close'][i] * normalization_factor
+    #     })
 
-    simulation_df = pl.DataFrame(simulation_results)
-    return simulation_df
+    # simulation_df = pl.DataFrame(simulation_results)
+    # return simulation_df
+    return data
 
 
 
-def test_strategy(args, data):
-    """
-    Backtests a trading strategy and returns the results.
-    
-    Parameters
-    ----------
-    args : tuple
-        Tuple containing the short and long window sizes
-        data : DataFrame
-        DataFrame containing the stock price data
-    """
-    short_window, long_window = args
-    data = calculate_moving_averages(data.clone(), short_window, long_window)  # Clone to avoid modifying the original data
-    simulation_df = simulate_trading(data)
-    return simulation_df
 
 
 
@@ -91,7 +81,7 @@ def test_strategy(args, data):
 # Function to compute final asset value for a combination
 def compute_final_asset_value(combination, data_df):
         short_window, long_window = combination
-        return test_strategy((short_window, long_window), data_df)['Asset Value'][-1]  # Return the final asset value
+        return test_strategy_short_long_window((short_window, long_window), data_df)['Asset Value'][-1]  # Return the final asset value
 
 
 def sensitivity_analysis(data_df, short_range, long_range):
