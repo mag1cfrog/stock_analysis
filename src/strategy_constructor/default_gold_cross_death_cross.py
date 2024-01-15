@@ -15,7 +15,7 @@ from dash import dcc, html, Input, Output
 
 
 # Core function where the trading strategy is implemented
-def default_gold_cross_death_cross(data, short_window, long_window, cash=10000, shares_held = 0):
+def default_gold_cross_death_cross(data, short_window, long_window, default_percentage_of_cash_invested=0):
     """
     Simulates trading based on the signals in the DataFrame
     
@@ -32,8 +32,8 @@ def default_gold_cross_death_cross(data, short_window, long_window, cash=10000, 
     
     """
     
-    simulation_results = []
-    normalization_factor = cash / data['close'][0]
+    # simulation_results = []
+    # normalization_factor = cash / data['close'][0]
 
     data = data.with_columns(
         data['close'].rolling_mean(window_size=int(short_window)).alias('short_MA'),
@@ -43,9 +43,19 @@ def default_gold_cross_death_cross(data, short_window, long_window, cash=10000, 
     # Create conditions for buying and selling
     buy_condition = (data['short_MA'] > data['long_MA']) & (data['short_MA'].shift(1) <= data['long_MA'].shift(1))
     sell_condition = (data['short_MA'] < data['long_MA']) & (data['short_MA'].shift(1) >= data['long_MA'].shift(1))
+    
+    data = data.with_columns(
+        (pl.when(buy_condition).then(1).otherwise(0) + default_percentage_of_cash_invested).cum_sum().alias('cumulative_buy'),
+        pl.when(sell_condition).then(1).otherwise(0).cum_sum().alias('cumulative_sell')
+    )
+
+    # Ensure that cumulative_sell doesn't exceed cumulative_buy
+    data = data.with_columns(
+        pl.when(data['cumulative_sell'] > data['cumulative_buy']).then(data['cumulative_buy']).otherwise(data['cumulative_sell']).alias('cumulative_sell')
+    )
 
     data = data.with_columns(
-        pl.when(buy_condition).then(1).when(sell_condition).then(0).alias('percentage_of_cash_invested')
+        (data['cumulative_buy'] - data['cumulative_sell']).alias('percentage_of_cash_invested')
     )
 
     # for i in range(data.height):
@@ -70,7 +80,7 @@ def default_gold_cross_death_cross(data, short_window, long_window, cash=10000, 
 
     # simulation_df = pl.DataFrame(simulation_results)
     # return simulation_df
-    return data
+    return data.drop('short_MA', 'long_MA', 'cumulative_buy', 'cumulative_sell')
 
 
 
