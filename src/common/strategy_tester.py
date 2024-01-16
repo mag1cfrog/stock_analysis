@@ -69,38 +69,49 @@ def backtest_strategy_short_long_window(
     return simulation_df
 
 
-# Function to compute final asset value for a combination
-def compute_final_asset_value(combination, data_df, trading_strategy_func):
+# Function to compute both the entire backtest and the final asset value for a combination
+def compute_backtest_and_final_value(combination, data_df, trading_strategy_func):
     short_window, long_window = combination
-    return backtest_strategy_short_long_window((short_window, long_window), data_df, trading_strategy_func)[
-        "asset_value"
-    ][
-        -1
-    ]  # Return the final asset value
+    # Get the full backtest result
+    full_backtest_result = backtest_strategy_short_long_window((short_window, long_window), data_df, trading_strategy_func)
+    # Extract the final asset value
+    final_asset_value = full_backtest_result["asset_value"][-1]
+    return full_backtest_result, final_asset_value
 
 
-def sensitivity_analysis(data_df, short_range, long_range, trading_strategy_func):
+def backtest_on_range(data_df, short_range, long_range, trading_strategy_func):
     # Prepare the combinations of short and long windows
     combinations = list(itertools.product(short_range, long_range))
 
-    # Use ThreadPoolExecutor to parallelize the computation
+    # Use ProcessPoolExecutor to parallelize the computation
     with ProcessPoolExecutor() as executor:
-        final_asset_values = list(
+        backtest_and_values = list(
             executor.map(
-                compute_final_asset_value, combinations, [data_df] * len(combinations), [trading_strategy_func] * len(combinations)
+                compute_backtest_and_final_value, combinations, [data_df] * len(combinations), [trading_strategy_func] * len(combinations)
             )
         )
 
-    # Create the results DataFrame
+    # Create a dictionary to store the complete backtest results
+    complete_backtest_results = {}
+    final_asset_values = []
+    for ((short, long), (full_backtest_result, final_value)) in zip(combinations, backtest_and_values):
+        complete_backtest_results[(short, long)] = full_backtest_result.to_pandas()
+        final_asset_values.append(final_value)
+    
+    # Create the results DataFrame for final asset values
     results = [
         {"short_window": short, "long_window": long, "final_asset_value": value}
         for ((short, long), value) in zip(combinations, final_asset_values)
     ]
-    results_df = pl.DataFrame(results)
+    final_values_df = pl.DataFrame(results)
 
-    # Reshape the DataFrame
-    results_df = results_df.pivot(
+    # Reshape the DataFrame for final asset values
+    reshaped_final_values_df = final_values_df.pivot(
         index="short_window", columns="long_window", values="final_asset_value"
     )
 
-    return results_df
+    # Now you have a dictionary where you can easily access the full backtest result
+    # by using the short and long window as a key
+    # reshaped_final_values_df - a DataFrame of final asset values
+
+    return reshaped_final_values_df, complete_backtest_results
