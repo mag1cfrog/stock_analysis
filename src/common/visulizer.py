@@ -3,6 +3,7 @@ from dash import dcc, html, Input, Output, State
 import plotly.io as pio
 import plotly.express as px
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 
 
@@ -160,17 +161,77 @@ def one_condition_trading_simulation_visualizer(df, show_or_return_graph_object=
     fig.add_trace(trace4)
 
     # Calculate statistics for annotations
+    # one buy-sell pair is one trading period
     buy_sell_pairs = zip(df[df['buy_point']].index, df[df['sell_point']].index)
     successful_periods = 0
     percentage_changes = []
+    cumulative_successes = 0
+    cumulative_attempts = 0
+    cumulative_success_rates = []
+    sell_timestamps = []
 
     for buy_index, sell_index in buy_sell_pairs:
         buy_price = df.loc[buy_index, 'normalized_stock_price']
         sell_price = df.loc[sell_index, 'normalized_stock_price']
         percentage_change = ((sell_price - buy_price) / buy_price) * 100
         percentage_changes.append(percentage_change)
+
         if sell_price > buy_price:
             successful_periods += 1
+            cumulative_successes += 1
+        cumulative_attempts += 1
+
+        cumulative_success_rate = (cumulative_successes / cumulative_attempts) * 100
+        cumulative_success_rates.append(cumulative_success_rate)
+        sell_timestamps.append(sell_index)
+
+    # Create a DataFrame for the cumulative success rate
+    cumulative_success_rate_df = pd.DataFrame({
+        'timestamp': sell_timestamps,
+        'cumulative_success_rate': cumulative_success_rates
+    }).set_index('timestamp')
+
+    # set secondary y-axis for cumulative success rate
+    fig.update_layout(
+        title_text="Trading Simulation",
+        xaxis_title="Date",
+        yaxis_title="Value",
+        template='plotly_dark',
+        autosize=True,  # This will make the figure responsive to the layout/container
+        margin=dict(t=100, l=50, r=50, b=150),  # Adjust bottom margin to fit annotations
+        
+        # Define a secondary y-axis for the cumulative success rate
+        yaxis2=dict(
+            overlaying='y',
+            side='right',
+            showgrid=False,  # Hide the gridlines
+            zeroline=False,  # Hide the zero line
+            showline=False,  # Hide the axis line
+            showticklabels=False,  # Hide the tick labels
+            range=[0, 100]  # Success rate is typically between 0% and 100%
+        )
+    )
+    
+    # Create a new trace for Cumulative Success Rate
+    trace5 = go.Scatter(
+        x=cumulative_success_rate_df.index,
+        y=cumulative_success_rate_df['cumulative_success_rate'],
+        mode='lines+markers',
+        name='Cumulative Success Rate',
+        line=dict(
+            color='orange',  # This is a distinct color for the new trace
+            width=2
+        ),
+        marker=dict(
+            symbol='circle',
+            size=5,
+            color='orange'
+        ),
+        yaxis='y2'  # This specifies that the trace uses the secondary y-axis
+    )
+
+    # Add the new trace to the figure
+    fig.add_trace(trace5)
 
     success_rate = (successful_periods / len(percentage_changes)) * 100 if percentage_changes else 0
     average_percentage_change = sum(percentage_changes) / len(percentage_changes) if percentage_changes else 0
@@ -200,15 +261,7 @@ def one_condition_trading_simulation_visualizer(df, show_or_return_graph_object=
         yanchor="top"
     )
 
-    # Update layout to ensure space for annotations
-    fig.update_layout(
-        title_text="Trading Simulation",
-        xaxis_title="Date",
-        yaxis_title="Value",
-        template='plotly_dark',
-        autosize=True,  # This will make the figure responsive to the layout/container
-        margin=dict(t=100, l=50, r=50, b=150)  # Adjust bottom margin to fit annotations
-    )
+    
     # 
     if show_or_return_graph_object == 'show':
         # Show plot
