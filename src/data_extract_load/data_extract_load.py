@@ -166,7 +166,7 @@ def identify_missing_periods(existing_data, start_date, end_date, time_unit, tim
 
 def main():
     db_path = r'E:\git_repos\stock_analysis\data\raw_stock_price\stock_bar_data.db'
-    df = update_and_retrieve_stock_data('NVDA',  datetime.today() - timedelta(days=180), datetime.today(), 'day', db_path, result_type='polars')
+    df = update_and_retrieve_stock_data('NVDA',  datetime.today() - timedelta(days=180), datetime.today(), 'minute', db_path, result_type='polars', time_unit_length = 30)
     print(df)
 
 if __name__ == "__main__":
