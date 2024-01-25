@@ -161,3 +161,4 @@ cython_debug/
 
 # ignore all the data files
 /data
+*.json
