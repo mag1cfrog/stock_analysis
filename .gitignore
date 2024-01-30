@@ -162,3 +162,9 @@ cython_debug/
 # ignore all the data files
 /data
 *.json
+
+# Vs Code
+.vscode/
+
+# Log files
+/logs/
