@@ -35,10 +35,10 @@ def get_last_timestamp(db_path: str, table_name: str) -> datetime:
 
 def update_stock_data(symbol: str, time_unit: str, time_unit_length: int, db_path: str, table_name: str):
     last_timestamp = get_last_timestamp(db_path, table_name)
+    last_timestamp_utc = last_timestamp.astimezone(pytz.timezone('utc'))
 
     # Make datetime.now() timezone-aware by setting it to american central time
-    now_time_zone = pytz.timezone('America/Chicago')
-    now_time = datetime.now(tz=now_time_zone)
+    current_utc_time_15mindelay = datetime.now(tz=pytz.utc) - timedelta(minutes=16)
 
     if time_unit == "minute":
         minimum_timedelta = timedelta(minutes=time_unit_length)
@@ -47,17 +47,21 @@ def update_stock_data(symbol: str, time_unit: str, time_unit_length: int, db_pat
     elif time_unit == "day":
         minimum_timedelta = timedelta(days=time_unit_length)
 
-    if now_time - last_timestamp >= minimum_timedelta:
-        print(now_time, last_timestamp, minimum_timedelta)
-        new_data = fetch_stock_data(symbol, last_timestamp, now_time, time_unit, time_unit_length)
+    if current_utc_time_15mindelay - last_timestamp_utc >= minimum_timedelta:
+        print("\ncurrent utc time: ", current_utc_time_15mindelay, "\nlast timestamp utc: ", last_timestamp_utc, "\ntime difference: ", current_utc_time_15mindelay - last_timestamp_utc)
+
+        new_data = fetch_stock_data(symbol, last_timestamp_utc + minimum_timedelta, current_utc_time_15mindelay, time_unit, time_unit_length)
 
     if not new_data.empty:
         validated_data = validate_data(new_data)
+        store_data_in_duckdb(validated_data, db_path, table_name)
         
     else:
-        validate_data = None
+        print("No new data to update.")
 
-    store_data_in_duckdb(validated_data, db_path, table_name)
+    
+
+
 
 def update_stock_data_wrapper(*args, **kwargs):
     try:

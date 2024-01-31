@@ -1,4 +1,5 @@
 import os
+import pytz
 import pandas as pd
 from datetime import datetime, timedelta
 from alpaca.data.historical import StockHistoricalDataClient
@@ -40,15 +41,19 @@ def fetch_stock_data(symbol: str, start_date: datetime, end_date: datetime, time
         adjustment=adjustment
     )
 
-    stock_bar = client.get_stock_bars(request_params)
-    data_df = stock_bar.df if stock_bar.data else pd.DataFrame()
+    try:
+        stock_bar = client.get_stock_bars(request_params)
+        if not stock_bar or not stock_bar.data:
+            print(f"No data returned for {symbol} from {start_date} to {end_date}")
+            return pd.DataFrame()
+
+        data_df = stock_bar.df
+    except Exception as e:
+        print(f"An error occurred while fetching data: {e}")
+        return pd.DataFrame()
 
     if not data_df.empty:
         data_df = data_df.reset_index()
-        # Ensure the 'timestamp' column is a datetime type
-        data_df['timestamp'] = pd.to_datetime(data_df['timestamp'])
-        # Convert 'timestamp' column to US Central Time ('America/Chicago')
-        data_df['timestamp'] = data_df['timestamp'].dt.tz_convert('UTC')
 
     return data_df
 
@@ -57,13 +62,21 @@ def main():
     """
     Main function for testing the fetch_stock_data function.
     """
-    symbol = "AAPL"  # Example symbol
-    start_date = datetime(2022, 1, 1)  # Example start date
-    end_date = datetime.now()  # Current time as end date
+    symbol = "APPL"  # Example symbol
+    # start_date = datetime(2022, 1, 1)  # Example start date
+    # end_date = datetime.now(tz=pytz.utc) - timedelta(minutes=16)  # Current time as end date
+    from dateutil import parser
+
+    datetime_str1 = "2024-01-31 01:52:43.175363+00:00"
+    datetime_str2 = "2024-01-31 01:30:00+00:00"
+
+    # Parse the datetime strings
+    datetime_obj1 = parser.parse(datetime_str1)
+    datetime_obj2 = parser.parse(datetime_str2)
     time_unit = "minute"  # Example time unit
     time_unit_length = 30  # Example time unit length
 
-    data = fetch_stock_data(symbol, end_date-timedelta(minutes=1), end_date, time_unit, time_unit_length)
+    data = fetch_stock_data(symbol, datetime_obj2, datetime_obj1, time_unit, time_unit_length)
     print(data)  # Display the first few rows of the fetched data
 
 

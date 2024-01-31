@@ -44,8 +44,8 @@ def store_data_in_duckdb(data: pd.DataFrame, db_path: str, table_name: str):
     #     # Optionally, unregister the DataFrame if you don't need it anymore
     #     conn.execute(text("UNREGISTER data_frame"))
 # ---------------------------------------------------------------------------------------------
-    print(f"Below data is passed in as the one to update: \n {data}")
-    
+    print(f"\nBelow data is passed in as the one to update: \n {data}")
+
     # Create a DuckDB engine using duckdb_engine
     engine = create_engine(f"duckdb:///{db_path}")
 
@@ -70,7 +70,7 @@ def store_data_in_duckdb(data: pd.DataFrame, db_path: str, table_name: str):
             temp_df = pd.read_sql(text("SELECT * FROM temp_table"), conn)
 
             # Print the DataFrame to check its contents
-            print("Contents of temporary table 'temp_table':")
+            print("\nContents of temporary table 'temp_table':")
             print(temp_df)
 
             # Delete the original table's data
