@@ -4,7 +4,7 @@ from strategy_constructor.default_gold_cross_death_cross import (
     default_gold_cross_death_cross,
 )
 from common.strategy_tester import backtest_on_range
-from common.visulizer import heatmap_line_graph_visualizer_with_slider_on_dash
+from common.visualizer import heatmap_line_graph_visualizer_with_slider_on_dash
 from pytz import timezone
 
 
