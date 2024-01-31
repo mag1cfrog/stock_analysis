@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
@@ -23,7 +23,7 @@ def set_time_frame(time_unit_length: int, time_unit: str) -> TimeFrame:
 
 def fetch_stock_data(symbol: str, start_date: datetime, end_date: datetime, time_unit: str, time_unit_length: int = 1, adjustment: str = "all") -> pd.DataFrame:
     """
-    Fetch stock bar data from Alpaca API.
+    Fetch stock bar data from Alpaca API and convert timestamps to US Central Time.
     """
     client = StockHistoricalDataClient(
         api_key=os.getenv("ALPACA_API_KEY"),
@@ -42,7 +42,15 @@ def fetch_stock_data(symbol: str, start_date: datetime, end_date: datetime, time
 
     stock_bar = client.get_stock_bars(request_params)
     data_df = stock_bar.df if stock_bar.data else pd.DataFrame()
-    return data_df.reset_index() if not data_df.empty else data_df
+
+    if not data_df.empty:
+        data_df = data_df.reset_index()
+        # Ensure the 'timestamp' column is a datetime type
+        data_df['timestamp'] = pd.to_datetime(data_df['timestamp'])
+        # Convert 'timestamp' column to US Central Time ('America/Chicago')
+        data_df['timestamp'] = data_df['timestamp'].dt.tz_convert('UTC')
+
+    return data_df
 
 
 def main():
@@ -55,8 +63,8 @@ def main():
     time_unit = "minute"  # Example time unit
     time_unit_length = 30  # Example time unit length
 
-    data = fetch_stock_data(symbol, start_date, end_date, time_unit, time_unit_length)
-    print(data.head())  # Display the first few rows of the fetched data
+    data = fetch_stock_data(symbol, end_date-timedelta(minutes=1), end_date, time_unit, time_unit_length)
+    print(data)  # Display the first few rows of the fetched data
 
 
 if __name__ == "__main__":

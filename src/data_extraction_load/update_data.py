@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 from datetime import datetime, timedelta
 import logging
+import pytz
 import duckdb
 import pandas as pd
 
@@ -32,28 +33,31 @@ def get_last_timestamp(db_path: str, table_name: str) -> datetime:
     return result[0] if result[0] is not None else datetime(2022, 1, 1)  # Default to Jan 1, 2022, if no data
 
 
-def update_stock_data(symbol: str, time_unit: str, time_unit_length: int, db_path: str):
-    """
-    Updates the stock data in DuckDB with new data since the last timestamp.
-
-    :param symbol: Stock symbol, e.g., 'NVDA'.
-    :param time_unit: Time unit for the data, e.g., 'minute'.
-    :param time_unit_length: Length of each time unit, e.g., 30.
-    :param db_path: Path to the DuckDB database file.
-    """
-    table_name = f"{symbol}_{time_unit}_{time_unit_length}"
+def update_stock_data(symbol: str, time_unit: str, time_unit_length: int, db_path: str, table_name: str):
     last_timestamp = get_last_timestamp(db_path, table_name)
 
-    # Fetch new data starting just after the last available timestamp
-    new_data = fetch_stock_data(symbol, last_timestamp + timedelta(minutes=1), datetime.now(), time_unit, time_unit_length)
+    # Make datetime.now() timezone-aware by setting it to american central time
+    now_time_zone = pytz.timezone('America/Chicago')
+    now_time = datetime.now(tz=now_time_zone)
+
+    if time_unit == "minute":
+        minimum_timedelta = timedelta(minutes=time_unit_length)
+    elif time_unit == "hour":
+        minimum_timedelta = timedelta(hours=time_unit_length)
+    elif time_unit == "day":
+        minimum_timedelta = timedelta(days=time_unit_length)
+
+    if now_time - last_timestamp >= minimum_timedelta:
+        print(now_time, last_timestamp, minimum_timedelta)
+        new_data = fetch_stock_data(symbol, last_timestamp, now_time, time_unit, time_unit_length)
 
     if not new_data.empty:
-        # Validate and preprocess the new data
         validated_data = validate_data(new_data)
+        
+    else:
+        validate_data = None
 
-        # Store the new data in DuckDB
-        store_data_in_duckdb(validated_data, symbol, time_unit, time_unit_length, db_path)
-
+    store_data_in_duckdb(validated_data, db_path, table_name)
 
 def update_stock_data_wrapper(*args, **kwargs):
     try:
