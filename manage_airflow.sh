@@ -5,7 +5,7 @@ case "$1" in
   start)
     echo "Starting Airflow webserver and scheduler..."
     airflow scheduler -D
-    airflow webserver -D
+    airflow webserver -p 8080 -D
     ;;
   stop)
     echo "Stopping Airflow webserver and scheduler..."
