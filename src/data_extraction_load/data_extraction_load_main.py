@@ -33,6 +33,8 @@ def main(symbol, time_unit, time_unit_length):
     # Define the database file path
     # Construct the path to the database file
     db_path = root_path / 'data' / 'raw_stock_price' / 'stock_bar_data.db'
+    db_directory = db_path.parent
+    db_directory.mkdir(parents=True, exist_ok=True)
     db_path_str = str(db_path)
     print("Attempting to connect to DB at:", db_path)
     # Connect to the DuckDB database
